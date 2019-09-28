@@ -1,0 +1,33 @@
+version: '2'
+
+services:
+  nginx-proxy:
+    image: nginx:1.17.0-alpine
+    restart: always
+    container_name: nginx-proxy
+    ports:
+      - "${BIND_HTTP}:80"
+      - "${BIND_HTTPS}:443"
+    volumes:
+      - /etc/nginx/conf.d
+      - ./certs:/etc/nginx/certs:ro,cached
+    networks:
+      - www-gateway
+
+  docker-gen:
+    image: jwilder/docker-gen:0.7.0
+    restart: always
+    command: -notify-sighup nginx-proxy -only-exposed -notify-output -watch /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
+    volumes_from:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro,cached
+      - ./nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl:ro,cached
+      - ./certs:/etc/nginx/certs:ro,cached
+    network_mode: "none" # No fun for you...
+    depends_on:
+      - nginx-proxy
+
+networks:
+  www-gateway:
+    external: true
